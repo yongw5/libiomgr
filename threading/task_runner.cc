@@ -74,12 +74,13 @@ TaskHandle TaskRunner::PostTask(std::function<void()> functor) {
   }
   bool empty = tasks_.empty();
   RefPtr<Task> task(new Task(functor));
+  TaskHandle handle(task);
   tasks_.push(task);
   if (empty) {
     queue_cond_var_.Signal();
   }
 
-  return TaskHandle(task);
+  return handle;
 }
 
 void TaskRunner::RunTasks() {

@@ -31,6 +31,12 @@ target_sources(${PROJECT_NAME}
   "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/tcp/inet_address.h"
   "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/tcp/tcp_client.h"
   "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/tcp/tcp_server.h"
+  "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/http/http_types.h"
+  "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/http/http_request.h"
+  "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/http/http_response.h"
+  "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/http/http_client.h"
+  "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/http/http_server.h"
+  "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/http/uri_parser.h"
   "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/time.h"
   "${LIBIOMGR_PUBLIC_INCLUDE_DIR}/timer.h"
   PRIVATE
@@ -44,6 +50,10 @@ target_sources(${PROJECT_NAME}
   "io/tcp_client_impl.cc"
   "io/tcp_server_impl.h"
   "io/tcp_server_impl.cc"
+  "io/http_request.cc"
+  "io/http_response.cc"
+  "io/http_client.cc"
+  "io/http_server.cc"
   "io/test/async_test_callback"
   "threading/task_handle.h"
   "threading/task_handle.cc"
@@ -60,10 +70,10 @@ target_sources(${PROJECT_NAME}
   "timer/timer_heap.cc"
   "timer/timer_manager.h"
   "timer/timer_manager.cc"
-  "util/dns_resolver.h"
-  "util/dns_resolver.cc"
   "util/file_op.h"
   "util/file_op.cc"
+  "util/http_parser.h"
+  "util/http_parser.cc"
   "util/inet_address.cc"
   "util/notification.h"
   "util/notification.cc"
@@ -100,13 +110,16 @@ libiomgr_test("io/io_poller_test.cc")
 libiomgr_test("io/io_watcher_test.cc")
 libiomgr_test("io/tcp_client_impl_test.cc")
 libiomgr_test("io/tcp_server_impl_test.cc")
+libiomgr_test("io/http_request_test.cc")
+libiomgr_test("io/http_response_test.cc")
+libiomgr_test("io/http_server_test.cc")
 libiomgr_test("threading/task_runner_test.cc")
 libiomgr_test("timer/time_test.cc")
 libiomgr_test("timer/timer_heap_test.cc")
 libiomgr_test("timer/timer_manager_test.cc")
 libiomgr_test("threading/thread_test.cc")
-libiomgr_test("util/dns_resolver_test.cc")
 libiomgr_test("util/file_op_test.cc")
+libiomgr_test("util/http_parser_test.cc")
 libiomgr_test("util/notification_test.cc")
 libiomgr_test("util/ref_counted_test.cc")
 libiomgr_test("util/scoped_fd_test.cc")
