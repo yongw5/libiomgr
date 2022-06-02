@@ -1,7 +1,6 @@
 #include "io/io_manager.h"
 
-#include <glog/logging.h>
-
+#include "glog/logging.h"
 #include "threading/task_handle.h"
 #include "threading/task_runner.h"
 #include "threading/thread.h"
@@ -15,9 +14,7 @@ class IOManager::PollThread : public Thread {
   explicit PollThread(IOManager* iomgr) : iomgr_(CHECK_NOTNULL(iomgr)) {}
 
  private:
-  void ThreadEntry() override {
-    iomgr_->Run();
-  }
+  void ThreadEntry() override { iomgr_->Run(); }
 
   IOManager* iomgr_;
 };

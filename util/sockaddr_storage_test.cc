@@ -1,8 +1,9 @@
 #include "util/sockaddr_storage.h"
 
 #include <arpa/inet.h>
-#include <glog/logging.h>
-#include <gtest/gtest.h>
+
+#include "glog/logging.h"
+#include "gtest/gtest.h"
 
 #define NS_INT16SZ 2
 #define NS_INADDRSZ 4

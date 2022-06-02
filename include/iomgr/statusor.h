@@ -1,8 +1,7 @@
 #ifndef LIBIOMGR_INCLUDE_STATUSOR_H_
 #define LIBIOMGR_INCLUDE_STATUSOR_H_
 
-#include <glog/logging.h>
-
+#include "glog/logging.h"
 #include "iomgr/export.h"
 #include "iomgr/status.h"
 

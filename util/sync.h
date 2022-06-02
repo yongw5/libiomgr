@@ -1,10 +1,10 @@
 #ifndef LIBIOMGR_UITL_SYNC_H_
 #define LIBIOMGR_UITL_SYNC_H_
 
-#include <glog/logging.h>
-
 #include <condition_variable>
 #include <mutex>
+
+#include "glog/logging.h"
 
 namespace iomgr {
 

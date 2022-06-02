@@ -1,8 +1,7 @@
 #include "timer/timer_heap.h"
 
-#include <glog/logging.h>
-#include <gtest/gtest.h>
-
+#include "glog/logging.h"
+#include "gtest/gtest.h"
 #include "iomgr/time.h"
 #include "iomgr/timer.h"
 #include "timer/test/timer_test.h"
