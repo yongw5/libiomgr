@@ -1,8 +1,9 @@
 #include "timer_heap.h"
 
+#include <glog/logging.h>
+
 #include <algorithm>
 
-#include "glog/logging.h"
 #include "iomgr/timer.h"
 
 namespace iomgr {

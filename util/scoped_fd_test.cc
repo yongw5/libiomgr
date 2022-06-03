@@ -1,9 +1,8 @@
 #include "util/scoped_fd.h"
 
 #include <fcntl.h>
-
-#include "glog/logging.h"
-#include "gtest/gtest.h"
+#include <glog/logging.h>
+#include <gtest/gtest.h>
 
 namespace iomgr {
 

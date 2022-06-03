@@ -1,10 +1,11 @@
 #include "threading/task_runner.h"
 
+#include <glog/logging.h>
+#include <gtest/gtest.h>
+
 #include <atomic>
 #include <memory>
 
-#include "glog/logging.h"
-#include "gtest/gtest.h"
 #include "threading/task_runner_task.h"
 
 namespace iomgr {
@@ -16,8 +17,12 @@ class TaskRunnerTest : public testing::Test {
     explicit TaskWrapper(std::function<void()> closure) : task_(closure) {}
     void Run() { task_.Run(); }
     void Cancel() { task_.CancelTask(); }
-    bool pending() { return task_.task_state_ == TaskRunner::Task::kPending; }
-    bool canceled() { return task_.task_state_ == TaskRunner::Task::kCanceled; }
+    bool pending() {
+      return task_.task_state_ == TaskRunner::Task::kPending;
+    }
+    bool canceled() {
+      return task_.task_state_ == TaskRunner::Task::kCanceled;
+    }
     bool completed() {
       return task_.task_state_ == TaskRunner::Task::kCompleted;
     }

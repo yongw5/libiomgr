@@ -5,17 +5,18 @@ PROJECT(${PROJECT_NAME})
 set(CMAKE_CXX_STANDARD 11)
 project(${PROJECT_NAME} VERSION 0.1 LANGUAGES C CXX)
 
+find_package(GTest REQUIRED)
+find_package(glog REQUIRED)
 find_package(Threads REQUIRED)
 
 set(LIBIOMGR_PUBLIC_INCLUDE_DIR "include/iomgr")
-
-add_subdirectory("third_party/googletest")
-add_subdirectory("third_party/glog")
 
 include_directories(
   "${PROJECT_SOURCE_DIR}/include"
   "."
 )
+include_directories(SYSTEM ${GTEST_INCLUDE_DIRS})
+include_directories(SYSTEM ${GLOG_INCLUDE_DIRS})
 
 add_library(${PROJECT_NAME} "")
 target_sources(${PROJECT_NAME}

@@ -4,10 +4,10 @@
 
 #include "iomgr/statusor.h"
 
+#include <gtest/gtest.h>
+
 #include <memory>
 #include <type_traits>
-
-#include "gtest/gtest.h"
 
 namespace iomgr {
 
