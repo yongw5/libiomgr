@@ -192,13 +192,16 @@ TEST_F(TCPClientImplTest, ReadIfReady) {
   const std::string message("test message");
   std::vector<char> buffer(message.size());
 
+  // try to read from the socket, but never write anything to the other end.
   RefPtr<IOBufferWithSize> read_buffer =
       MakeRefCounted<IOBufferWithSize>(message.size());
-  StatusOrResultCallback read_callback;
+  StatusResultCallback read_callback;
   StatusOr<int> read_result = connectint_sokcet->ReadIfReady(
       read_buffer.get(), read_buffer->size(), read_callback.callback());
   EXPECT_TRUE(read_result.status().IsTryAgain());
+  // connectint_sokcet->CancelReadIfReady();
 
+  // Send data to socket
   size_t bytes_written = 0;
   while (bytes_written < message.size()) {
     RefPtr<IOBufferWithSize> write_buffer =
@@ -215,17 +218,12 @@ TEST_F(TCPClientImplTest, ReadIfReady) {
     bytes_written += write_result.value();
   }
 
-  size_t bytes_read = 0;
-  while (bytes_read < message.size()) {
-    read_result = read_callback.GetResult(read_result);
-    EXPECT_TRUE(read_result.ok());
-    memmove(&buffer[bytes_read], read_buffer->data(), read_result.value());
-    bytes_read += read_result.value();
-    read_result = connectint_sokcet->ReadIfReady(
-        read_buffer.get(), read_buffer->size(), read_callback.callback());
-  }
+  EXPECT_TRUE(read_callback.GetResult(Status::TryAgain("")).ok());
 
-  std::string received_message(buffer.begin(), buffer.end());
+  read_result = connectint_sokcet->ReadIfReady(
+      read_buffer.get(), read_buffer->size(), read_callback.callback());
+  EXPECT_TRUE(read_result.ok());
+  std::string received_message(read_buffer->data(), read_result.value());
   EXPECT_EQ(message, received_message);
 }
 

@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 
+#include "iomgr/callback.h"
 #include "iomgr/export.h"
 #include "iomgr/time.h"
 
@@ -18,16 +19,16 @@ class IOMGR_EXPORT Timer {
   Timer(const Timer&) = delete;
   Timer& operator=(const Timer&) = delete;
 
-  static void Start(Time::Delta delay, std::function<void()> closure,
+  static void Start(Time::Delta delay, Closure closure,
                     Timer::Controller* controller);
 
   Time deadline() const { return deadline_; }
   bool pending() const { return pending_; }
 
  private:
-  friend class TimerTest;
   friend class Controller;
   friend class TimerHeap;
+  friend class TimerHeapTest;
   friend class TimerManager;
 
   Timer();
@@ -36,7 +37,7 @@ class IOMGR_EXPORT Timer {
   Time deadline_;
   bool pending_;
   uint32_t heap_index_;
-  std::function<void()> closure_;
+  Closure closure_;
   Controller* controller_;
   struct {
     Timer* le_next;
@@ -55,6 +56,7 @@ class IOMGR_EXPORT Timer::Controller {
   void Cancel();
 
   Time deadline() const { return timer_.deadline(); }
+  bool pending() const { return timer_.pending(); }
 
  private:
   friend class TimerManager;

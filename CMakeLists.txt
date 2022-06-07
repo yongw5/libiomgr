@@ -64,12 +64,13 @@ target_sources(${PROJECT_NAME}
   "threading/thread.h"
   "threading/thread.cc"
   "timer/time.cc"
-  "timer/test/timer_test.h"
   "timer/timer.cc"
   "timer/timer_heap.h"
   "timer/timer_heap.cc"
   "timer/timer_manager.h"
   "timer/timer_manager.cc"
+  "util/averaged_stats.h"
+  "util/averaged_stats.cc"
   "util/file_op.h"
   "util/file_op.cc"
   "util/http_parser.h"
@@ -118,6 +119,7 @@ libiomgr_test("timer/time_test.cc")
 libiomgr_test("timer/timer_heap_test.cc")
 libiomgr_test("timer/timer_manager_test.cc")
 libiomgr_test("threading/thread_test.cc")
+libiomgr_test("util/averaged_stats_test.cc")
 libiomgr_test("util/file_op_test.cc")
 libiomgr_test("util/http_parser_test.cc")
 libiomgr_test("util/notification_test.cc")

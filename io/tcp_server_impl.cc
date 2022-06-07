@@ -108,12 +108,12 @@ Status TCPServerImpl::Listen(int backlog) {
 }
 
 Status TCPServerImpl::Accept(std::unique_ptr<TCPClient>* socket,
-                             TCPAcceptCb callback) {
+                             AcceptCallback callback) {
   return Accept(socket, std::move(callback), nullptr);
 }
 
 Status TCPServerImpl::Accept(std::unique_ptr<TCPClient>* socket,
-                             TCPAcceptCb callback, InetAddress* remote) {
+                             AcceptCallback callback, InetAddress* remote) {
   DCHECK(socket);
   DCHECK(callback);
 

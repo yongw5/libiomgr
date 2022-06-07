@@ -4,6 +4,7 @@
 #include "iomgr/io_watcher.h"
 #include "iomgr/ref_counted.h"
 #include "iomgr/tcp/tcp_client.h"
+#include "iomgr/timer.h"
 #include "util/scoped_fd.h"
 
 namespace iomgr {
@@ -21,17 +22,15 @@ class TCPClientImpl : public TCPClient, IOWatcher {
   Status Open(int family);
   Status Bind(const InetAddress& local);
   Status AdoptConnectedSocket(int socket, const InetAddress& remote);
-  Status Connect(const InetAddress& remote,
-                 std::function<void(Status)> connect_callback);
+  Status Connect(const InetAddress& remote, Time::Delta connect_timeout,
+                 StatusCallback connect_callback);
   StatusOr<int> Read(IOBuffer* buf, int buf_len,
-                     TCPReadCb callback) override;
+                     StatusOrIntCallback read_callback) override;
   StatusOr<int> ReadIfReady(IOBuffer* buf, int buf_len,
-                            TCPReadCb callback) override;
+                            StatusCallback read_callback) override;
   Status CancelReadIfReady() override;
   StatusOr<int> Write(IOBuffer* buf, int buf_len,
-                      TCPWriteCb callback) override;
-  StatusOr<int> WriteWhenReady(IOBuffer* buf, int buf_len,
-                               TCPWriteCb callback);
+                      StatusOrIntCallback callback) override;
   Status Disconnect() override;
   bool IsConnected() const override;
   Status GetLocalAddress(InetAddress* local) const override;
@@ -52,31 +51,33 @@ class TCPClientImpl : public TCPClient, IOWatcher {
   Status DoConnect();
   StatusOr<int> DoRead(IOBuffer* buf, int buf_len);
   StatusOr<int> DoWrite(IOBuffer* buf, int buf_len);
-  void RetryRead(StatusOr<int> ret);
-  void OnConnectDone();
+  void RetryRead(Status ret);
+  void OnConnectTimeout();
+  void OnConnectDone(Status status);
   void OnReadDone();
   void OnWriteDone();
   void OnFileReadable(int fd) override;
   void OnFileWritable(int fd) override;
 
   ScopedFD socket_fd_;
+  Timer::Controller connect_timeout_controller_;
 
   IOWatcher::Controller connect_socket_controller_;
-  TCPConnectCb connect_callback_;
+  StatusCallback connect_callback_;
   ConnectState connect_state_;
 
   IOWatcher::Controller read_socket_controller_;
   // Non-null when a Read() is in progress.
   RefPtr<IOBuffer> read_buf_;
   int read_buf_len_;
-  TCPReadCb read_callback_;
+  StatusOrIntCallback read_callback_;
   // Non-null when a ReadIfReady() is in progress
-  TCPReadCb read_if_ready_callback_;
+  StatusCallback read_if_ready_callback_;
 
   IOWatcher::Controller write_socket_controller_;
   RefPtr<IOBuffer> write_buf_;
   int write_buf_len_;
-  TCPWriteCb write_callback_;
+  StatusOrIntCallback write_callback_;
 
   mutable std::unique_ptr<SockaddrStorage> local_address_;
   std::unique_ptr<SockaddrStorage> remote_address_;

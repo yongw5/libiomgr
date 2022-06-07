@@ -18,8 +18,8 @@ class TCPServerImpl : public TCPServer, IOWatcher {
   Status Bind(const InetAddress& local);
   Status Listen(int backlog);
   Status Accept(std::unique_ptr<TCPClient>* socket,
-                TCPAcceptCb callback) override;
-  Status Accept(std::unique_ptr<TCPClient>* socket, TCPAcceptCb callback,
+                AcceptCallback callback) override;
+  Status Accept(std::unique_ptr<TCPClient>* socket, AcceptCallback callback,
                 InetAddress* remote) override;
   Status GetLocalAddress(InetAddress* local) const override;
   Status AllowAddressReuse();
@@ -33,7 +33,7 @@ class TCPServerImpl : public TCPServer, IOWatcher {
   mutable std::unique_ptr<SockaddrStorage> local_address_;
 
   IOWatcher::Controller accept_socket_controller_;
-  TCPAcceptCb accept_callback_;
+  AcceptCallback accept_callback_;
   std::unique_ptr<TCPClient>* accept_socket_;
   InetAddress* remote_;
   SockaddrStorage accepted_address_;

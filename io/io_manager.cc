@@ -15,9 +15,7 @@ class IOManager::PollThread : public Thread {
   explicit PollThread(IOManager* iomgr) : iomgr_(CHECK_NOTNULL(iomgr)) {}
 
  private:
-  void ThreadEntry() override {
-    iomgr_->Run();
-  }
+  void ThreadEntry() override { iomgr_->Run(); }
 
   IOManager* iomgr_;
 };
@@ -122,17 +120,13 @@ void IOManager::Wakeup() {
 
 void IOManager::Run() {
   while (true) {
-    Time next = Time::Now();
-    TimerCheckResult checked = TimerManager::Get()->TimerCheck(&next);
-
-    Time::Delta timeout = Time::Delta::FromMilliseconds(-1);
-    if (TimerCheckResult::kTimersFired == checked) {
-      Time now = Time::Now();
-      if (now < next) {
-        timeout = next - now;
-      } else {
-        timeout = Time::Delta::Zero();
-      }
+    Time::Delta timeout = TimerManager::Get()->TimerCheck();
+    if (timeout.IsInfinite()) {
+      timeout = Time::Delta::FromMilliseconds(-1);
+    } else if (timeout < Time::Delta::Zero()) {
+      timeout = Time::Delta::Zero();
+    } else if(timeout < Time::Delta::FromMilliseconds(1)) {
+      timeout = Time::Delta::FromMilliseconds(1);
     }
 
     std::vector<IOEvent> io_events;
@@ -149,9 +143,9 @@ void IOManager::Run() {
       MutexLock lock(&mutex_);
       for (auto ctrl : fd_ctrl->controllers) {
         if (event.ready & ctrl->mode()) {
-          ctrl->task_.reset(new TaskHandle(
-              runner->PostTask(std::bind(&IOManager::HandleIO, ctrl->fd(),
-                                         ctrl->watcher(), event.ready))));
+          ctrl->task_.reset(new TaskHandle(runner->PostTask(
+              std::bind(&IOManager::HandleIO, ctrl->fd(), ctrl->watcher(),
+                        event.ready & ctrl->mode()))));
         }
       }
     }

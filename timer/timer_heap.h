@@ -16,7 +16,7 @@ class TimerHeap {
   TimerHeap(const TimerHeap&) = delete;
   TimerHeap& operator=(const TimerHeap&) = delete;
 
-  // Return true iff the new timers is the first timer in the heap
+  // Return true iff |timer| is the first timer in the heap
   bool Add(Timer* timer);
   void Remove(Timer* timer);
   Timer* Top();
@@ -26,7 +26,7 @@ class TimerHeap {
 
   // This is for testing only
   static void ResetDeadline(Timer* timer, Time deadline);
-  
+
   bool Contains(Timer* timer);
   bool CheckValid();
 
@@ -47,4 +47,4 @@ class TimerHeap {
 
 }  // namespace iomgr
 
-#endif // LIBIOMGR_UTIL_TIMER_HEAP_H_
+#endif  // LIBIOMGR_UTIL_TIMER_HEAP_H_

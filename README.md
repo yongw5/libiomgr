@@ -1,7 +1,7 @@
 # Features
 1. Modern C++11 interface.
 1. Modern functional/bind style callback.
-1. async TCP server/client
+1. async TCP/HTTP server/client
 1. Timer
 
 # Getting the Source
@@ -22,4 +22,4 @@ cmake .. && cmake --build .
 ```
 
 # TODO
-testing HTTP
+benchmark

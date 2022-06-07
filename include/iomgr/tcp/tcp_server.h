@@ -14,7 +14,7 @@ class InetAddress;
 
 class IOMGR_EXPORT TCPServer {
  public:
-  using TCPAcceptCb = std::function<void(Status)>;
+  using AcceptCallback = std::function<void(Status)>;
   struct Options {
     Options() : reuse_address(false), backlog(5) {}
     Options(bool reuse_address, int backlog)
@@ -33,9 +33,9 @@ class IOMGR_EXPORT TCPServer {
   static Status Listen(const InetAddress& local, const Options& options,
                        std::unique_ptr<TCPServer>* server);
   virtual Status Accept(std::unique_ptr<TCPClient>* socket,
-                        TCPAcceptCb callback) = 0;
+                        AcceptCallback callback) = 0;
   virtual Status Accept(std::unique_ptr<TCPClient>* socket,
-                        TCPAcceptCb callback, InetAddress* address) = 0;
+                        AcceptCallback callback, InetAddress* address) = 0;
   virtual Status GetLocalAddress(InetAddress* address) const = 0;
 };
 

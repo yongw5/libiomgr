@@ -1,6 +1,7 @@
 #include "io/tcp_client_impl.h"
 
 #include "iomgr/io_buffer.h"
+#include "iomgr/timer.h"
 #include "util/file_op.h"
 #include "util/os_error.h"
 #include "util/sockaddr_storage.h"
@@ -13,9 +14,10 @@ TCPClient::TCPClient() = default;
 TCPClient::~TCPClient() = default;
 
 Status TCPClient::Connect(const InetAddress& remote, const Options& options,
-                          TCPConnectCb callback, const InetAddress* local,
+                          StatusCallback connect_callback,
+                          const InetAddress* local,
                           std::unique_ptr<TCPClient>* client) {
-  DCHECK(callback);
+  DCHECK(connect_callback);
   DCHECK(client);
 
   SockaddrStorage address(remote);
@@ -52,13 +54,15 @@ Status TCPClient::Connect(const InetAddress& remote, const Options& options,
     return status;
   }
 
-  status = socket->Connect(remote, std::move(callback));
+  status = socket->Connect(remote, options.connect_timeout,
+                           std::move(connect_callback));
   client->reset(socket.release());
   return status;
 }
 
 TCPClientImpl::TCPClientImpl()
     : socket_fd_(-1),
+      connect_timeout_controller_(),
       connect_socket_controller_(),
       connect_callback_(),
       connect_state_(kNone),
@@ -138,8 +142,9 @@ Status TCPClientImpl::AdoptConnectedSocket(int socket,
 }
 
 Status TCPClientImpl::Connect(const InetAddress& remote,
-                              TCPConnectCb callback) {
-  DCHECK(callback);
+                              Time::Delta connect_timeout,
+                              StatusCallback connect_callback) {
+  DCHECK(connect_callback);
   DCHECK_NE(-1, socket_fd_);
   DCHECK(!connect_callback_);
   DCHECK(!remote_address_);
@@ -163,6 +168,12 @@ Status TCPClientImpl::Connect(const InetAddress& remote,
     return status;
   }
 
+  if (!connect_timeout.IsInfinite()) {
+    Timer::Start(connect_timeout,
+                 std::bind(&TCPClientImpl::OnConnectTimeout, this),
+                 &connect_timeout_controller_);
+  }
+
   if (!IOWatcher::WatchFileDescriptor(socket_fd_, IOWatcher::kWatchWrite, this,
                                       &connect_socket_controller_)) {
     LOG(ERROR) << "WatchFileIO failed on connect";
@@ -170,29 +181,29 @@ Status TCPClientImpl::Connect(const InetAddress& remote,
     return MapSystemError(errno);
   }
 
-  connect_callback_ = std::move(callback);
+  connect_callback_ = std::move(connect_callback);
   return Status::TryAgain("CONNECT PENDING");
 }
 
 StatusOr<int> TCPClientImpl::Read(IOBuffer* buf, int buf_len,
-                                  TCPReadCb callback) {
+                                  StatusOrIntCallback read_callback) {
   StatusOr<int> ret = ReadIfReady(
       buf, buf_len,
       std::bind(&TCPClientImpl::RetryRead, this, std::placeholders::_1));
   if (ret.status().IsTryAgain()) {
     read_buf_ = buf;
     read_buf_len_ = buf_len;
-    read_callback_ = std::move(callback);
+    read_callback_ = std::move(read_callback);
   }
   return ret;
 }
 
 StatusOr<int> TCPClientImpl::ReadIfReady(IOBuffer* buf, int buf_len,
-                                         TCPReadCb callback) {
+                                         StatusCallback read_callback) {
   DCHECK_NE(-1, socket_fd_);
   DCHECK_EQ(kConnected, connect_state_);  // connect done
   DCHECK(!read_if_ready_callback_);       // no read pending
-  DCHECK(callback);                       // callback is valid
+  DCHECK(read_callback);                  // callback is valid
   DCHECK_LE(0, buf_len);                  // buf_len is valid
 
   StatusOr<int> ret = DoRead(buf, buf_len);
@@ -203,11 +214,11 @@ StatusOr<int> TCPClientImpl::ReadIfReady(IOBuffer* buf, int buf_len,
   if (!IOWatcher::WatchFileDescriptor(socket_fd_, IOWatcher::kWatchRead, this,
                                       &read_socket_controller_)) {
     LOG(ERROR) << "WatchFileIO failed on read";
-    return StatusOr<int>(MapSystemError(errno));
+    return MapSystemError(errno);
   }
 
-  read_if_ready_callback_ = std::move(callback);
-  return StatusOr<int>(Status::TryAgain("READ PENDING"));
+  read_if_ready_callback_ = std::move(read_callback);
+  return Status::TryAgain("READ PENDING");
 }
 
 Status TCPClientImpl::CancelReadIfReady() {
@@ -221,38 +232,29 @@ Status TCPClientImpl::CancelReadIfReady() {
 }
 
 StatusOr<int> TCPClientImpl::Write(IOBuffer* buf, int buf_len,
-                                   TCPWriteCb callback) {
+                                   StatusOrIntCallback write_callback) {
   DCHECK_NE(-1, socket_fd_);
   DCHECK_EQ(kConnected, connect_state_);  // connect done
   DCHECK(!write_callback_);               // No writing pending
-  DCHECK(callback);                       // callback is valid
+  DCHECK(write_callback);                 // callback is valid
   DCHECK_LT(0, buf_len);                  // buf_len is valid
 
-  StatusOr<int> ret = DoWrite(buf, buf_len);
-  if (ret.status().IsTryAgain()) {
-    ret = WriteWhenReady(buf, buf_len, std::move(callback));
+  StatusOr<int> write_or = DoWrite(buf, buf_len);
+  if (!write_or.status().IsTryAgain()) {
+    return write_or;
   }
-  return ret;
-}
-
-StatusOr<int> TCPClientImpl::WriteWhenReady(IOBuffer* buf, int buf_len,
-                                            TCPWriteCb callback) {
-  DCHECK_NE(-1, socket_fd_);
-  DCHECK_EQ(kConnected, connect_state_);  // connect done
-  DCHECK(!write_callback_);               // no writing pending
-  DCHECK(callback);                       // callback is valid
-  DCHECK_LT(0, buf_len);                  // buf_len is valid
 
   if (!IOWatcher::WatchFileDescriptor(socket_fd_, IOWatcher::kWatchWrite, this,
                                       &write_socket_controller_)) {
     LOG(ERROR) << "WatchFileIO failed on write";
-    return StatusOr<int>(MapSystemError(errno));
+    return MapSystemError(errno);
   }
 
   write_buf_ = buf;
   write_buf_len_ = buf_len;
-  write_callback_ = std::move(callback);
-  return StatusOr<int>(Status::TryAgain("WRITE PENDING"));
+  write_callback_ = write_callback;
+
+  return Status::TryAgain("WRITE PENDING");
 }
 
 Status TCPClientImpl::Disconnect() {
@@ -262,6 +264,7 @@ Status TCPClientImpl::Disconnect() {
   DCHECK(ok);
   ok = write_socket_controller_.StopWatching();
   DCHECK(ok);
+  connect_timeout_controller_.Cancel();
   if (socket_fd_ != -1) {
     socket_fd_.reset();  // close socket
   }
@@ -388,46 +391,51 @@ StatusOr<int> TCPClientImpl::DoWrite(IOBuffer* buf, int buf_len) {
   return FileOp::write(socket_fd_, buf->data(), buf_len);
 }
 
-void TCPClientImpl::RetryRead(StatusOr<int> ret) {
+void TCPClientImpl::RetryRead(Status ret) {
   DCHECK(read_callback_);
   DCHECK(read_buf_);
   DCHECK_LT(0, read_buf_len_);
+  DCHECK(ret.ok());
 
-  if (ret.ok()) {
-    ret = ReadIfReady(
-        read_buf_.get(), read_buf_len_,
-        std::bind(&TCPClientImpl::RetryRead, this, std::placeholders::_1));
-    if (ret.status().IsTryAgain()) {
-      return;
-    }
+  StatusOr<int> read_or = ReadIfReady(
+      read_buf_.get(), read_buf_len_,
+      std::bind(&TCPClientImpl::RetryRead, this, std::placeholders::_1));
+  if (read_or.status().IsTryAgain()) {
+    return;
   }
 
   read_buf_ = nullptr;
   read_buf_len_ = 0;
-  TCPReadCb read_callback;
-  std::swap(read_callback, read_callback_);
-  read_callback(ret);
+  read_callback_(read_or);
+  read_callback_ = nullptr;
 }
 
-void TCPClientImpl::OnConnectDone() {
+void TCPClientImpl::OnConnectTimeout() {
+  OnConnectDone(Status::Timeout("Connect timeout"));
+}
+
+void TCPClientImpl::OnConnectDone(Status status) {
   // Get the error that connect() completed with.
-  int os_error = 0;
-  socklen_t len = sizeof(os_error);
-  if (getsockopt(socket_fd_, SOL_SOCKET, SO_ERROR, &os_error, &len) == 0) {
-    errno = os_error;
-  }
+  if (status.ok()) {
+    int os_error = 0;
+    socklen_t len = sizeof(os_error);
+    if (getsockopt(socket_fd_, SOL_SOCKET, SO_ERROR, &os_error, &len) == 0) {
+      errno = os_error;
+    }
 
-  Status status = MapSocketConnectError(errno);
-  if (status.IsTryAgain()) {
-    return;
-  }
+    Status status = MapSocketConnectError(errno);
+    if (status.IsTryAgain()) {
+      return;
+    }
 
-  bool ok = connect_socket_controller_.StopWatching();
-  DCHECK(ok);
-  connect_state_ = kConnected;
-  TCPConnectCb connect_callback(nullptr);
-  std::swap(connect_callback, connect_callback_);
-  connect_callback(status);
+    bool ok = connect_socket_controller_.StopWatching();
+    DCHECK(ok);
+    connect_state_ = kConnected;
+  } else {
+    connect_state_ = kNone;
+  }
+  connect_callback_(status);
+  connect_callback_ = nullptr;
 }
 
 void TCPClientImpl::OnReadDone() {
@@ -435,15 +443,14 @@ void TCPClientImpl::OnReadDone() {
 
   bool ok = read_socket_controller_.StopWatching();
   DCHECK(ok);
-  TCPReadCb read_if_ready_callback(nullptr);
-  std::swap(read_if_ready_callback, read_if_ready_callback_);
-  read_if_ready_callback(StatusOr<int>(0));
+  read_if_ready_callback_(Status::OK());
+  read_if_ready_callback_ = nullptr;
 }
 
 void TCPClientImpl::OnWriteDone() {
-  StatusOr<int> ret =
+  StatusOr<int> write_or =
       FileOp::write(socket_fd_, write_buf_.get(), write_buf_len_);
-  if (ret.status().IsTryAgain()) {
+  if (write_or.status().IsTryAgain()) {
     return;
   }
 
@@ -451,9 +458,8 @@ void TCPClientImpl::OnWriteDone() {
   DCHECK(ok);
   write_buf_.reset();
   write_buf_len_ = 0;
-  TCPWriteCb write_callback(nullptr);
-  std::swap(write_callback, write_callback_);
-  write_callback(ret);
+  write_callback_(write_or);
+  write_callback_ = nullptr;
 }
 
 void TCPClientImpl::OnFileReadable(int fd) {
@@ -464,7 +470,7 @@ void TCPClientImpl::OnFileReadable(int fd) {
 void TCPClientImpl::OnFileWritable(int fd) {
   DCHECK_NE(kNone, connect_state_);
   if (connect_state_ == kConnecting) {
-    OnConnectDone();
+    OnConnectDone(Status::OK());
   } else {
     OnWriteDone();
   }
